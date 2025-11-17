@@ -1,0 +1,215 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useCart } from '@/contexts/CartContext';
+import ItemModal from './ItemModal';
+
+interface MenuItem {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  category: string | null;
+  has_addons: boolean;
+  has_variations: boolean;
+  addons: string[] | null;
+  variations: string[] | null;
+}
+
+interface CategoryModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  categoryName: string;
+  items: MenuItem[];
+  onAddToCart?: (
+    item: MenuItem,
+    selectedAddons: string[],
+    selectedVariation: string | null,
+    specialInstructions: string
+  ) => void;
+}
+
+interface VariationItem {
+  name: string;
+  baseItem: MenuItem;
+  variation: string;
+}
+
+export default function CategoryModal({
+  isOpen,
+  onClose,
+  categoryName,
+  items,
+}: CategoryModalProps) {
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [selectedVariation, setSelectedVariation] = useState<string | null>(null);
+  const [isItemModalOpen, setIsItemModalOpen] = useState(false);
+  const { addToCart } = useCart();
+
+  if (!isOpen) return null;
+
+  // Transform items: if item has variations, create separate items for each variation
+  // BUT: for מאפים, don't split - show the base items and let user choose size in ItemModal
+  const displayItems: (MenuItem | VariationItem)[] = [];
+  items.forEach((item) => {
+    if (item.has_variations && item.variations && item.variations.length > 0 && item.category !== 'מאפים') {
+      // Create a separate item for each variation (for סלטים, etc.)
+      item.variations.forEach((variation) => {
+        displayItems.push({
+          name: variation,
+          baseItem: item,
+          variation: variation,
+        } as VariationItem);
+      });
+    } else {
+      // Regular item without variations, or מאפים (which will show size selection in ItemModal)
+      displayItems.push(item);
+    }
+  });
+
+  // Special handling: if only one item and it has addons, open ItemModal directly
+  // This is for טוסט which has only one option
+  useEffect(() => {
+    if (isOpen && items.length === 1 && items[0].has_addons && !items[0].has_variations) {
+      setSelectedItem(items[0]);
+      setIsItemModalOpen(true);
+    }
+  }, [items, isOpen]);
+
+  const handleItemClick = (item: MenuItem | VariationItem) => {
+    if ('baseItem' in item) {
+      // This is a variation item
+      setSelectedItem(item.baseItem);
+      setSelectedVariation(item.variation);
+    } else {
+      // Regular item
+      setSelectedItem(item);
+      setSelectedVariation(null);
+    }
+    setIsItemModalOpen(true);
+  };
+
+  const handleAddToCart = (
+    item: MenuItem,
+    selectedAddons: string[],
+    selectedVariation: string | null,
+    specialInstructions: string
+  ) => {
+    // Create display name with addons and variations
+    let displayName = item.name;
+    if (selectedVariation) {
+      displayName += ` - ${selectedVariation}`;
+    }
+    if (selectedAddons.length > 0) {
+      displayName += ` (${selectedAddons.join(', ')})`;
+    }
+
+    addToCart({
+      id: item.id,
+      name: displayName,
+      price: item.price,
+      selectedAddons,
+      selectedVariation,
+      specialInstructions,
+    });
+
+    setIsItemModalOpen(false);
+    setSelectedItem(null);
+    setSelectedVariation(null);
+  };
+
+  // If only one item with addons (like טוסט), don't show the modal, just open ItemModal
+  if (items.length === 1 && items[0].has_addons && !items[0].has_variations) {
+    return (
+      <>
+        {selectedItem && (
+          <ItemModal
+            item={selectedItem}
+            isOpen={isItemModalOpen}
+            onClose={() => {
+              setIsItemModalOpen(false);
+              setSelectedItem(null);
+              onClose();
+            }}
+            onAdd={handleAddToCart}
+          />
+        )}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+        dir="rtl"
+        onClick={onClose}
+      >
+        <div
+          className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">{categoryName}</h2>
+              <button
+                onClick={onClose}
+                className="text-gray-500 hover:text-gray-700 text-3xl font-bold leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {displayItems.map((item, index) => {
+                const isVariation = 'baseItem' in item;
+                const displayName = isVariation ? item.name : item.name;
+                let price = isVariation ? item.baseItem.price : item.price;
+                // For מאפים, show price based on variation
+                if (isVariation && item.baseItem.category === 'מאפים') {
+                  price = item.variation === 'קטן' ? 4.50 : 8.30;
+                }
+                const description = isVariation ? item.baseItem.description : item.description;
+                const hasAddons = isVariation ? item.baseItem.has_addons : item.has_addons;
+                
+                return (
+                  <div
+                    key={isVariation ? `${item.baseItem.id}-${item.variation}` : item.id}
+                    onClick={() => handleItemClick(item)}
+                    className="bg-white rounded-lg shadow-md p-4 hover:shadow-xl transition-all cursor-pointer border-2 border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center min-h-[120px] text-center"
+                  >
+                    <h3 className="font-semibold text-gray-900 mb-2">{displayName}</h3>
+                    <p className="text-lg font-bold text-blue-600 mb-2">
+                      {price.toFixed(2)} ₪
+                    </p>
+                    {description && (
+                      <p className="text-xs text-gray-600 mb-2">{description}</p>
+                    )}
+                    {hasAddons && (
+                      <p className="text-xs text-blue-600 font-medium">לחץ לבחירה</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {selectedItem && (
+        <ItemModal
+          item={selectedItem}
+          isOpen={isItemModalOpen}
+          onClose={() => {
+            setIsItemModalOpen(false);
+            setSelectedItem(null);
+            setSelectedVariation(null);
+          }}
+          onAdd={handleAddToCart}
+          preSelectedVariation={selectedVariation}
+        />
+      )}
+    </>
+  );
+}
+
