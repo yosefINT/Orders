@@ -8,17 +8,7 @@ import CategoryModal from "@/components/CategoryModal";
 import DrinksMenu from "@/components/DrinksMenu";
 import Image from "next/image";
 
-interface MenuItem {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number;
-  category: string | null;
-  has_addons: boolean;
-  has_variations: boolean;
-  addons: string[] | null;
-  variations: string[] | null;
-}
+import { MenuItem } from '@/types/menu';
 
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);

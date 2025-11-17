@@ -4,17 +4,7 @@ import { useEffect, useState } from 'react';
 import { useCart } from '@/contexts/CartContext';
 import ItemModal from './ItemModal';
 
-interface MenuItem {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number;
-  category: string | null;
-  has_addons: boolean;
-  has_variations: boolean;
-  addons: string[] | null;
-  variations: string[] | null;
-}
+import { MenuItem } from '@/types/menu';
 
 interface MenuProps {
   selectedCategory?: string | null;

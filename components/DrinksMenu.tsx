@@ -2,13 +2,7 @@
 
 import { useCart } from '@/contexts/CartContext';
 
-interface MenuItem {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number;
-  category: string | null;
-}
+import { MenuItem } from '@/types/menu';
 
 interface DrinksMenuProps {
   items: MenuItem[];
